@@ -23,6 +23,17 @@ def _fmt(v, prefix="₹", decimals=0) -> str:
         return str(v)
 
 
+def _safe(data: dict, key1: str, key2: str = None, default=0):
+    """Safely extracts a value from nested dicts, returning default if missing."""
+    try:
+        val = data.get(key1)
+        if key2 and isinstance(val, dict):
+            val = val.get(key2)
+        return val if val is not None else default
+    except Exception:
+        return default
+
+
 SYSTEM_PROMPT = """
 You are a Senior Ecosystem Valuation Analyst and Land-Use Investment Strategist with 20+ years
 of experience in environmental finance, real-estate development, and climate-risk advisory in India.
@@ -57,25 +68,25 @@ async def get_ai_recommendation(
     if not GROQ_API_KEY:
         return "AI Analysis unavailable – GROQ_API_KEY not set."
 
-    fd  = analysis_data.get("flood_json",    {})
-    sd  = analysis_data.get("solar_json",    {})
-    cd  = analysis_data.get("carbon_json",   {})
-    cb  = analysis_data.get("cost_breakdown",{})  # Full cost model
-    scn = analysis_data.get("scenarios",     {})
+    fd  = analysis_data.get("flood_json",    {}) or {}
+    sd  = analysis_data.get("solar_json",    {}) or {}
+    cd  = analysis_data.get("carbon_json",   {}) or {}
+    cb  = analysis_data.get("cost_breakdown",{}) or {}
+    scn = analysis_data.get("scenarios",     {}) or {}
 
-    area_m2 = project_data.get("area_m2", 0)
-    annual_flood_val = fd.get("annual_damage_avoided_inr_per_m2", 0) * area_m2
+    area_m2 = _safe(project_data, "area_m2", default=0)
+    annual_flood_val = _safe(fd, "annual_damage_avoided_inr_per_m2", default=0) * area_m2
 
     user_prompt = f"""
 ## LAND PARCEL DETAILS
 | Field           | Value |
 |-----------------|-------|
-| Project Name    | {project_data.get('name')} |
+| Project Name    | {_safe(project_data, 'name', default='N/A')} |
 | Area            | {area_m2:,.0f} m²  ·  {area_m2/10000:.3f} ha  ·  {area_m2/4046.86:.2f} acres |
-| Dominant Cover  | {project_data.get('dominant_type')} |
-| User Intent     | {project_data.get('user_intent')} |
-| Elevation       | {project_data.get('elevation_m')} m ASL |
-| Terrain Slope   | {project_data.get('slope_pct')} % |
+| Dominant Cover  | {_safe(project_data, 'dominant_type', default='N/A')} |
+| User Intent     | {_safe(project_data, 'user_intent', default='N/A')} |
+| Elevation       | {_safe(project_data, 'elevation_m')} m ASL |
+| Terrain Slope   | {_safe(project_data, 'slope_pct')} % |
 
 ---
 
@@ -98,52 +109,52 @@ async def get_ai_recommendation(
 ## FLOOD & CLIMATE RISK
 | Metric                       | Value |
 |------------------------------|-------|
-| Annual Rainfall              | {_fmt(fd.get('annual_rainfall_mm'), prefix='', decimals=1)} mm/yr |
-| SCS Curve Number (current)   | {_fmt(fd.get('cn_current'), prefix='', decimals=1)} |
-| Runoff if Developed          | {_fmt(fd.get('runoff_developed_mm'), prefix='', decimals=1)} mm |
-| Additional Runoff (delta)    | {_fmt(fd.get('delta_runoff_mm'), prefix='', decimals=1)} mm |
+| Annual Rainfall              | {_fmt(_safe(fd, 'annual_rainfall_mm'), prefix='', decimals=1)} mm/yr |
+| SCS Curve Number (current)   | {_fmt(_safe(fd, 'cn_current'), prefix='', decimals=1)} |
+| Runoff if Developed          | {_fmt(_safe(fd, 'runoff_developed_mm'), prefix='', decimals=1)} mm |
+| Additional Runoff (delta)    | {_fmt(_safe(fd, 'delta_runoff_mm'), prefix='', decimals=1)} mm |
 | Annual Flood-Damage Avoided  | {_fmt(annual_flood_val)} |
-| Flood Risk Score             | {fd.get('flood_risk_score', 'N/A')} / 1.00  ({fd.get('risk_label', '')}) |
+| Flood Risk Score             | {_safe(fd, 'flood_risk_score', default='N/A')} / 1.00  ({fd.get('risk_label', '')}) |
 
 ---
 
 ## SOLAR ENERGY POTENTIAL  (MNRE 2024 benchmarks, 9 % WACC)
 | Metric                 | Value |
 |------------------------|-------|
-| Daily GHI (NASA POWER) | {_fmt(sd.get('avg_daily_ghi_kwh_m2'), prefix='', decimals=3)} kWh/m²/day |
-| Installed Capacity     | {_fmt(sd.get('installed_capacity_kwp'), prefix='', decimals=1)} kWp |
-| Year-1 Generation      | {_fmt(sd.get('annual_generation_kwh'), prefix='', decimals=0)} kWh |
-| Annual Revenue         | {_fmt(sd.get('annual_revenue_inr'))} |
-| Total Capex            | {_fmt(sd.get('total_investment_inr'))} |
-| Annual O&M Cost        | {_fmt(sd.get('annual_opex_inr'))} |
-| Simple Payback Period  | {sd.get('payback_years', 'N/A')} years |
-| 25-Year NPV            | {_fmt(sd.get('npv_25yr_inr'))} |
-| LCOE                   | {_fmt(sd.get('lcoe_inr_kwh'), prefix='₹', decimals=2)}/kWh |
+| Daily GHI (NASA POWER) | {_fmt(_safe(sd, 'avg_daily_ghi_kwh_m2'), prefix='', decimals=3)} kWh/m²/day |
+| Installed Capacity     | {_fmt(_safe(sd, 'installed_capacity_kwp'), prefix='', decimals=1)} kWp |
+| Year-1 Generation      | {_fmt(_safe(sd, 'annual_generation_kwh'), prefix='', decimals=0)} kWh |
+| Annual Revenue         | {_fmt(_safe(sd, 'annual_revenue_inr'))} |
+| Total Capex            | {_fmt(_safe(sd, 'total_investment_inr'))} |
+| Annual O&M Cost        | {_fmt(_safe(sd, 'annual_opex_inr'))} |
+| Simple Payback Period  | {_safe(sd, 'payback_years', default='N/A')} years |
+| 25-Year NPV            | {_fmt(_safe(sd, 'npv_25yr_inr'))} |
+| LCOE                   | {_fmt(_safe(sd, 'lcoe_inr_kwh'), prefix='₹', decimals=2)}/kWh |
 
 ---
 
 ## CARBON & ECOSYSTEM  (IPCC Tier-1; SCC = EPA 2023 $51/tCO₂ × ₹83)
 | Metric                         | Value |
 |--------------------------------|-------|
-| Stored Carbon Stock            | {_fmt(cd.get('stored_co2_tons'), prefix='', decimals=1)} tCO₂ |
-| Stock Value at SCC             | {_fmt(cd.get('stored_carbon_value_inr'))} |
-| Annual Sequestration           | {_fmt(cd.get('annual_sequestration_co2_tons'), prefix='', decimals=2)} tCO₂/yr |
-| Annual Credit Revenue (VCS)    | {_fmt(cd.get('annual_credit_revenue_inr'))} |
-| 30-Yr NPV at SCC  (6 % DR)    | {_fmt(cd.get('npv_30yr_inr'))} |
-| 30-Yr NPV at Market Credits    | {_fmt(cd.get('npv_30yr_market_inr'))} |
+| Stored Carbon Stock            | {_fmt(_safe(cd, 'stored_co2_tons'), prefix='', decimals=1)} tCO₂ |
+| Stock Value at SCC             | {_fmt(_safe(cd, 'stored_carbon_value_inr'))} |
+| Annual Sequestration           | {_fmt(_safe(cd, 'annual_sequestration_co2_tons'), prefix='', decimals=2)} tCO₂/yr |
+| Annual Credit Revenue (VCS)    | {_fmt(_safe(cd, 'annual_credit_revenue_inr'))} |
+| 30-Yr NPV at SCC  (6 % DR)    | {_fmt(_safe(cd, 'npv_30yr_inr'))} |
+| 30-Yr NPV at Market Credits    | {_fmt(_safe(cd, 'npv_30yr_market_inr'))} |
 
 ---
 
 ## SCENARIO SUMMARY
 | Scenario   | 30-Year NPV | Notes |
 |------------|-------------|-------|
-| **Preserve**  | {_fmt(scn.get('preserve_npv30_inr'))} | Carbon credits + eco-tourism, no construction |
-| **Develop**   | {_fmt(scn.get('develop_npv_inr'))}    | Full development profit (discounted 3-yr delivery) |
-| **Hybrid**    | {_fmt(scn.get('hybrid_npv_inr'))}     | 40% eco + 40% dev + 20% solar optimised |
+| **Preserve**  | {_fmt(_safe(scn, 'preserve_npv30_inr'))} | Carbon credits + eco-tourism, no construction |
+| **Develop**   | {_fmt(_safe(scn, 'develop_npv_inr'))}    | Full development profit (discounted 3-yr delivery) |
+| **Hybrid**    | {_fmt(_safe(scn, 'hybrid_npv_inr'))}     | 40% eco + 40% dev + 20% solar optimised |
 
-**Env NPV Total**: {_fmt(analysis_data.get('environmental_npv'))}
-**Dev Net Profit**: {_fmt(analysis_data.get('financial_npv'))}
-**Eco-Fin Score**:  {analysis_data.get('composite_score')} / 100
+**Env NPV Total**: {_fmt(_safe(analysis_data, 'environmental_npv'))}
+**Dev Net Profit**: {_fmt(_safe(analysis_data, 'financial_npv'))}
+**Eco-Fin Score**:  {_safe(analysis_data, 'composite_score')} / 100
 
 Please generate the full advisory report as structured above.
 """.strip()

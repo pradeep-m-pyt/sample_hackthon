@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sprout, Mail, Lock, Loader2, ArrowRight, User } from "lucide-react";
+import { MoveRight, Sprout, ArrowLeft, Mail, Lock, User, CheckCircle2, Shield, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { GoogleLogin } from "@react-oauth/google";
+import { Logo } from "@/components/shared/Logo";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -72,12 +73,10 @@ export default function SignupPage() {
             >
                 <div className="glass-card p-8 rounded-[2.5rem] bg-white shadow-2xl">
                     <div className="flex flex-col items-center gap-4 mb-8">
-                        <Link href="/" className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-200">
-                            <Sprout className="w-8 h-8" />
-                        </Link>
                         <div className="text-center">
-                            <h1 className="text-2xl font-bold text-slate-900">Create Account</h1>
-                            <p className="text-slate-500 text-sm">Join EcoTech and start analyzing</p>
+                            <Logo size={48} className="justify-center mb-6" />
+                            <h1 className="text-3xl font-bold text-slate-900 mb-2 font-fraunces">Create Account</h1>
+                            <p className="text-slate-500 text-sm">Join EnvROI and start analyzing</p>
                         </div>
                     </div>
 
@@ -147,7 +146,7 @@ export default function SignupPage() {
                             ) : (
                                 <>
                                     Create Account
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    <MoveRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </>
                             )}
                         </button>

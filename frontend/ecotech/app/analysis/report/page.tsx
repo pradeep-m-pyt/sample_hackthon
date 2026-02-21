@@ -8,6 +8,7 @@ import {
     TreeDeciduous, Info, CheckCircle2,
     TrendingUp, Activity
 } from "lucide-react";
+import { Logo } from "@/components/shared/Logo";
 import api from "@/lib/api";
 import {
     AreaChart, Area, XAxis, YAxis,
@@ -50,7 +51,7 @@ function ReportContent() {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`EcoTech_Report_${projectId}.pdf`);
+        pdf.save(`EnvROI_Report_${projectId}.pdf`);
     };
 
     if (loading || !data) return <div className="p-20 text-center">Loading Report...</div>;
@@ -82,8 +83,7 @@ function ReportContent() {
                     {/* Header */}
                     <div className="flex justify-between items-start border-b border-slate-100 pb-10">
                         <div className="flex items-center gap-3 text-green-700 font-black text-3xl">
-                            <Sprout className="w-10 h-10" />
-                            EcoTech
+                            <Logo size={40} />
                         </div>
                         <div className="text-right">
                             <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Report Date</div>

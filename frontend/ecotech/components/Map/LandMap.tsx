@@ -51,6 +51,7 @@ const LandMap = ({ onPolygonComplete, flyToRef }: LandMapProps) => {
 
     return (
         <MapContainer
+            key="ecotech-map-v1"
             center={[20.5937, 78.9629]}  // Default to centre of India
             zoom={5}
             style={{ height: "100%", width: "100%" }}

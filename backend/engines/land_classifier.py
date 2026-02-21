@@ -43,12 +43,14 @@ async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
     weighted distribution across our six land categories.
     Uses element-type weighting (relation > way > node) to better
     approximate actual spatial coverage.
+    Also captures the detected place name and raw OSM type.
     """
     lats = [p["lat"] for p in polygon]
     lngs = [p["lng"] for p in polygon]
     min_lat, max_lat = min(lats), max(lats)
     min_lng, max_lng = min(lngs), max(lngs)
 
+    # Overpass query for landuse and natural tags in the bbox
     query = f"""
     [out:json][timeout:30];
     (
@@ -70,12 +72,24 @@ async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
 
         elements = data.get("elements", [])
 
+        detected_name = None
+        raw_types = []
+
         for element in elements:
             tags = element.get("tags", {})
             landuse = tags.get("landuse", "")
             natural = tags.get("natural", "")
             element_type = element.get("type", "node")
             weight = ELEMENT_WEIGHTS.get(element_type, 1)
+
+            # Capture place name from OSM tags
+            name = tags.get("name")
+            if name and not detected_name:
+                detected_name = name
+
+            # Track raw OSM types
+            if landuse: raw_types.append(landuse)
+            if natural: raw_types.append(natural)
 
             # Prefer landuse over natural for categorisation
             raw_tag = landuse or natural
@@ -90,14 +104,18 @@ async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
                 "open_land": 0.5, "agriculture": 0.3, "forest": 0.1,
                 "wetland": 0.0, "urban": 0.1, "water": 0.0
             }
+            dominant_type = "open_land"
+            raw_type = "unclassified"
         else:
             distribution = {k: round(v / total, 4) for k, v in distribution.items()}
-
-        dominant_type = max(distribution, key=distribution.get)
+            dominant_type = max(distribution, key=distribution.get)
+            raw_type = max(set(raw_types), key=raw_types.count) if raw_types else dominant_type
 
         return {
-            "distribution": distribution,
-            "dominant_type": dominant_type,
+            "distribution":    distribution,
+            "dominant_type":   dominant_type,
+            "raw_type":        raw_type,
+            "detected_name":   detected_name,
             "osm_feature_count": len(elements),
         }
 
@@ -109,5 +127,7 @@ async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
                 "wetland": 0.0, "urban": 0.1, "water": 0.0
             },
             "dominant_type": "open_land",
+            "raw_type":      "error",
+            "detected_name": None,
             "osm_feature_count": 0,
         }

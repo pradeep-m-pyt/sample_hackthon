@@ -217,13 +217,14 @@ async def aggregate_analysis(
     hybrid_npv = hybrid_preserve_share + hybrid_dev_share + hybrid_solar_share + hybrid_carbon_share
 
     # ── D. Composite Eco-Fin Score (0-100) ────────────────────────────────
-    # Benchmarks (50th percentile India project sizes)
-    ECO_REF = 5_000_000    # ₹50 L env NPV = full 40 pts
-    FIN_REF = 50_000_000   # ₹5 Cr  dev profit = full 40 pts
+    # Benchmarks for India project scales
+    ECO_REF = 2_500_000    # ₹25 L env NPV = full 40 pts
+    FIN_REF = 25_000_000   # ₹2.5 Cr dev profit = full 40 pts
     flood_risk = flood_data.get("flood_risk_score", 0.5)
 
-    eco_pts  = min(1.0, total_env_npv / ECO_REF)  * 40
-    fin_pts  = min(1.0, max(0, net_profit) / FIN_REF) * 40
+    # Use max(0, ...) to ensure negative results don't break the score
+    eco_pts  = min(1.0, max(0.0, total_env_npv)  / ECO_REF)  * 40
+    fin_pts  = min(1.0, max(0.0, net_profit)      / FIN_REF)  * 40
     risk_pts = (1 - flood_risk) * 20
 
     composite_score = round(eco_pts + fin_pts + risk_pts, 1)

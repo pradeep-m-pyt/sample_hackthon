@@ -95,6 +95,8 @@ async def get_ai_recommendation(
 - **Flood Risk Score**: {_safe(fd, 'flood_risk_score', default=0)} / 1.0 (Label: {fd.get('risk_label', 'Low')})
 - **Annual Rainfall**: {_safe(fd, 'annual_rainfall_mm', default=0)} mm
 - **Solar Irradiance**: {_safe(sd, 'avg_daily_ghi_kwh_m2', default=0)} kWh/m²/day
+- **Solar Temp Derate**: {_safe(sd, 'temp_derate_factor', default=1)}x (Avg Temp: {_safe(sd, 'avg_temp_c', default=25)}°C)
+- **Solar IRR**: {_safe(sd, 'irr_pct', default=0)}% | **LCOE**: ₹{_safe(sd, 'lcoe_inr_kwh', default=0)}/kWh
 - **Annual Solar Revenue**: ₹{_fmt(_safe(sd, 'annual_revenue_inr', default=0), prefix='')}
 - **Carbon NPV (30yr)**: ₹{_fmt(_safe(cd, 'npv_30yr_inr', default=0), prefix='')}
 - **Dev Net Profit**: ₹{_fmt(_safe(analysis_data, 'financial_npv', default=0), prefix='')}

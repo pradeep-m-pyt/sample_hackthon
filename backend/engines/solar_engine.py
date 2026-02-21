@@ -1,165 +1,176 @@
 import httpx
 import math
-from typing import Dict
+from datetime import datetime, timedelta
+from typing import Dict, List
 
-# NASA POWER solar irradiance endpoint
-NASA_POWER_SOLAR_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
+# NASA POWER endpoints
+NASA_POWER_DAILY_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 
 # ── Panel Specifications ─────────────────────────────────────────────────────
-PANEL_AREA_M2        = 2.0      # Standard 400W panel footprint
-PANEL_CAPACITY_KW    = 0.4      # 400 Wp per panel
-SYSTEM_EFFICIENCY    = 0.77     # PR (Performance Ratio) – IEC 61724 typical
-PANEL_DEGRADATION    = 0.005    # 0.5 % annual output degradation (industry standard)
-PANEL_LIFETIME_YEARS = 25       # Bankable project life
+PANEL_AREA_M2        = 1.6      # User specified area
+PANEL_EFFICIENCY     = 0.18     # 18 % efficiency (user specified)
+SYSTEM_LOSS_FACTOR   = 0.15     # 15 % losses (dirt, wiring, inverter)
+PANEL_DEGRADATION    = 0.005    # 0.5 % annual output degradation
+PANEL_LIFETIME_YEARS = 25       
+TEMP_COEFF           = -0.004   # -0.4%/°C (Standard for Si panels)
+NOCT_OFFSET          = 25       # degrees offset for NOCT calculation
 
 # ── Industry-standard Indian Solar Economics ─────────────────────────────────
-CAPEX_PER_KWP_INR    = 55_000   # ₹55 k/kWp (approx. 2024 utility-scale India)
-OPEX_RATE            = 0.01     # 1 % of Capex per year (O&M)
-GRID_TARIFF_INR_KWH  = 4.75    # ₹/kWh (average industrial + commercial FiT, 2024)
-DISCOUNT_RATE        = 0.09     # 9 % WACC for renewable projects in India
+CAPEX_PER_W_INR      = 55.0      # ₹55 per Watt peak
+GST_RATE             = 0.05      # 5 % GST on solar components
+OPEX_RATE            = 0.01      # 1 % of Capex per year (Year 1)
+OPEX_ESCALATION      = 0.025     # 2.5 % annual O&M inflation
+GRID_TARIFF_INR_KWH  = 4.75      # ₹/kWh (average industrial + commercial FiT)
+DISCOUNT_RATE        = 0.09      
 
-# Which land types are eligible for ground-mounted solar panels
 SOLAR_ELIGIBLE_FRACTION: Dict[str, float] = {
     "open_land":   1.00,
-    "agriculture": 0.40,   # Agrivoltaic – panels above crops
-    "urban":       0.25,   # Rooftop fraction
+    "agriculture": 0.40,
+    "urban":       0.25,
     "forest":      0.00,
     "wetland":     0.00,
-    "water":       0.05,   # Floating solar
+    "water":       0.05,
 }
 
+async def fetch_historical_solar_weather(lat: float, lng: float, year: int, month: int) -> Dict[str, Dict[str, float]]:
+    """
+    Fetches daily GHI (kWh/m2/day) and Temperature (T2M) for a specific year and month.
+    """
+    start_date = f"{year}{month:02d}01"
+    last_day = (datetime(year, month, 1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    end_date = last_day.strftime("%Y%m%d")
 
-async def get_ghi_kwh_m2_day(lat: float, lng: float) -> float:
-    """
-    Fetches Global Horizontal Irradiance (GHI) from NASA POWER.
-    Returns monthly-averaged daily GHI (kWh/m²/day) averaged over 2022-2023.
-    Falls back to 5.0 kWh/m²/day if API is unavailable.
-    """
     params = {
-        "parameters": "ALLSKY_SFC_SW_DWN",   # GHI in Wh/m²/day
+        "start": start_date,
+        "end": end_date,
+        "latitude": lat,
+        "longitude": lng,
+        "parameters": "ALLSKY_SFC_SW_DWN,T2M",
         "community": "RE",
-        "longitude": str(lng),
-        "latitude":  str(lat),
-        "format": "JSON",
-        "start": "2022",
-        "end": "2023",
+        "format": "JSON"
     }
+    
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            res = await client.get(NASA_POWER_SOLAR_URL, params=params)
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.get(NASA_POWER_DAILY_URL, params=params)
             data = res.json()
-        monthly = data["properties"]["parameter"]["ALLSKY_SFC_SW_DWN"]
-        # Values are in Wh/m²/day → convert to kWh
-        values = [v / 1000.0 for v in monthly.values() if v and v > 0]
-        return round(sum(values) / len(values), 3) if values else 5.0
+            return data["properties"]["parameter"]
     except Exception as e:
-        print(f"NASA POWER solar error: {e}")
-        return 5.0  # Conservative default for India
+        print(f"NASA POWER Weather fetch error ({year}-{month}): {e}")
+        return {}
 
+def calculate_irr(cash_flows: List[float], guess: float = 0.1) -> float:
+    """Simple Newton-Raphson IRR implementation."""
+    for _ in range(100):
+        npv = sum(cf / (1 + guess)**t for t, cf in enumerate(cash_flows))
+        d_npv = sum(-t * cf / (1 + guess)**(t+1) for t, cf in enumerate(cash_flows))
+        if abs(d_npv) < 1e-6: break
+        new_guess = guess - npv / d_npv
+        if abs(new_guess - guess) < 1e-7: return new_guess
+        guess = new_guess
+    return guess
 
-def pv_npv(
-    annual_kwh_year1: float,
-    capex_inr: float,
-    opex_annual_inr: float,
-    tariff: float = GRID_TARIFF_INR_KWH,
-    years: int = PANEL_LIFETIME_YEARS,
-    discount_rate: float = DISCOUNT_RATE,
-    degradation: float = PANEL_DEGRADATION,
-) -> float:
+async def get_solar_weather_expectation(lat: float, lng: float) -> Dict[str, float]:
     """
-    Net Present Value of the solar installation over its lifetime.
-    Accounts for annual production degradation and O&M costs.
+    Calculates avg daily GHI and T2M based on 4-year history.
     """
-    npv = -capex_inr  # Initial investment is an outflow
-    for t in range(1, years + 1):
-        generation = annual_kwh_year1 * ((1 - degradation) ** (t - 1))
-        revenue    = generation * tariff
-        cash_flow  = revenue - opex_annual_inr
-        npv       += cash_flow / ((1 + discount_rate) ** t)
-    return round(npv, 2)
+    current_date = datetime.now()
+    next_month_date = (current_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+    target_month = next_month_date.month
+    years = [next_month_date.year - i for i in range(1, 5)]
+    
+    all_ghi = []
+    all_temp = []
+    
+    for year in years:
+        weather_data = await fetch_historical_solar_weather(lat, lng, year, target_month)
+        if weather_data:
+            ghi_dict = weather_data.get("ALLSKY_SFC_SW_DWN", {})
+            temp_dict = weather_data.get("T2M", {})
+            all_ghi.append([v for v in ghi_dict.values() if v >= 0])
+            all_temp.append([v for v in temp_dict.values() if v > -50])
 
+    flat_ghi = [v for sublist in all_ghi for v in sublist]
+    flat_temp = [v for sublist in all_temp for v in sublist]
+    
+    avg_ghi = sum(flat_ghi) / len(flat_ghi) if flat_ghi else 5.2
+    avg_temp = sum(flat_temp) / len(flat_temp) if flat_temp else 25.0
+    
+    return {"ghi": round(avg_ghi, 3), "temp": round(avg_temp, 2)}
 
-async def run_solar_analysis(
-    lat: float,
-    lng: float,
-    area_m2: float,
-    distribution: Dict[str, float],
-) -> Dict:
-    """
-    Full solar potential analysis:
-      1. Fetch real GHI from NASA POWER
-      2. Determine usable area by land-cover eligibility
-      3. Calculate panel count, generation & economics
-      4. Compute lifetime NPV with degradation and O&M
-    """
-    ghi_kwh_m2_day = await get_ghi_kwh_m2_day(lat, lng)
-
-    # 1. Usable area
-    usable_fraction = sum(
-        distribution.get(cat, 0.0) * frac
-        for cat, frac in SOLAR_ELIGIBLE_FRACTION.items()
-    )
-    usable_area_m2 = area_m2 * usable_fraction
-
-    # 2. Panel count (60 % packing density on usable area)
-    packing_density = 0.60
-    panel_count = math.floor((usable_area_m2 * packing_density) / PANEL_AREA_M2)
-
-    if panel_count == 0:
-        return {
-            "avg_daily_ghi_kwh_m2": ghi_kwh_m2_day,
-            "usable_area_m2": 0,
-            "panel_count": 0,
-            "installed_capacity_kwp": 0,
-            "annual_generation_kwh": 0,
-            "annual_revenue_inr": 0,
-            "total_investment_inr": 0,
-            "annual_opex_inr": 0,
-            "payback_years": None,
-            "npv_25yr_inr": 0,
-            "lcoe_inr_kwh": None,
-        }
-
-    installed_kwp = panel_count * PANEL_CAPACITY_KW
-
-    # 3. Year-1 generation (kWh)
-    annual_gen_kwh = (
-        installed_kwp * ghi_kwh_m2_day * 365 * SYSTEM_EFFICIENCY
-    )
-
-    # 4. Economics
-    capex_inr  = installed_kwp * CAPEX_PER_KWP_INR
-    opex_inr   = capex_inr * OPEX_RATE
-    annual_rev = annual_gen_kwh * GRID_TARIFF_INR_KWH
-
-    payback = (
-        capex_inr / (annual_rev - opex_inr)
-        if (annual_rev - opex_inr) > 0 else None
-    )
-
-    npv = pv_npv(annual_gen_kwh, capex_inr, opex_inr)
-
-    # LCOE (₹/kWh) – sum of discounted costs / sum of discounted energy
-    total_disc_energy = sum(
-        annual_gen_kwh * ((1 - PANEL_DEGRADATION) ** (t - 1)) / ((1 + DISCOUNT_RATE) ** t)
-        for t in range(1, PANEL_LIFETIME_YEARS + 1)
-    )
-    total_disc_cost = capex_inr + sum(
-        opex_inr / ((1 + DISCOUNT_RATE) ** t)
-        for t in range(1, PANEL_LIFETIME_YEARS + 1)
-    )
-    lcoe = round(total_disc_cost / total_disc_energy, 2) if total_disc_energy > 0 else None
-
+def pv_npv_metrics(annual_kwh_year1: float, capex_inr: float, opex_annual_inr: float) -> Dict:
+    cash_flows = [-capex_inr]
+    total_disc_energy = 0.0
+    total_disc_costs = capex_inr
+    
+    npv = -capex_inr
+    for t in range(1, PANEL_LIFETIME_YEARS + 1):
+        gen = annual_kwh_year1 * ((1 - PANEL_DEGRADATION) ** (t - 1))
+        opex = opex_annual_inr * ((1 + OPEX_ESCALATION) ** (t - 1))
+        revenue = gen * GRID_TARIFF_INR_KWH
+        net_cf = revenue - opex
+        
+        cash_flows.append(net_cf)
+        npv += net_cf / ((1 + DISCOUNT_RATE) ** t)
+        
+        total_disc_energy += gen / ((1 + DISCOUNT_RATE) ** t)
+        total_disc_costs += opex / ((1 + DISCOUNT_RATE) ** t)
+        
+    irr = calculate_irr(cash_flows)
+    lcoe = total_disc_costs / total_disc_energy if total_disc_energy > 0 else 0
+    
     return {
-        "avg_daily_ghi_kwh_m2":   ghi_kwh_m2_day,
+        "npv": round(npv, 2),
+        "irr": round(irr * 100, 2),
+        "lcoe": round(lcoe, 2)
+    }
+
+async def run_solar_analysis(lat: float, lng: float, area_m2: float, distribution: Dict[str, float]) -> Dict:
+    # 1. Weather Data (GHI + Temp)
+    weather = await get_solar_weather_expectation(lat, lng)
+    ghi = weather["ghi"]
+    temp = weather["temp"]
+
+    # 2. Area & Capacity
+    usable_fraction = sum(distribution.get(cat, 0.0) * frac for cat, frac in SOLAR_ELIGIBLE_FRACTION.items())
+    usable_area_m2 = area_m2 * usable_fraction
+    packing_density = 0.65
+    panel_count = math.floor((usable_area_m2 * packing_density) / PANEL_AREA_M2)
+    
+    if panel_count == 0:
+        return {"avg_daily_ghi_kwh_m2": ghi, "panel_count": 0, "npv_25yr_inr": 0}
+
+    # BIFACIAL Fix: Capacity = count * area * eff (STC)
+    # Corrected formula: count * 1.6 * 0.18 = count * 0.288 kWp
+    capacity_kwp = panel_count * PANEL_AREA_M2 * PANEL_EFFICIENCY 
+
+    # 3. Temperature Derating
+    # P_actual = P_stc * [1 + Tc * (T_ambient + NOCT_offset - 25)]
+    temp_derate_factor = max(0.5, 1.0 + TEMP_COEFF * (temp + NOCT_OFFSET - 25))
+    
+    # Year-1 Gen (kWh) = Capacity * GHI * 365 * Losses * TempDerate
+    annual_gen_kwh = capacity_kwp * ghi * 365 * (1 - SYSTEM_LOSS_FACTOR) * temp_derate_factor
+    
+    # 4. Economics (including GST)
+    base_capex = capacity_kwp * 1000 * CAPEX_PER_W_INR
+    total_capex = base_capex * (1 + GST_RATE)
+    opex_y1 = total_capex * OPEX_RATE
+    
+    metrics = pv_npv_metrics(annual_gen_kwh, total_capex, opex_y1)
+    
+    return {
+        "avg_daily_ghi_kwh_m2":   ghi,
+        "avg_temp_c":              temp,
         "usable_area_m2":          round(usable_area_m2, 2),
         "panel_count":             panel_count,
-        "installed_capacity_kwp":  round(installed_kwp, 2),
+        "installed_capacity_kwp":  round(capacity_kwp, 2),
         "annual_generation_kwh":   round(annual_gen_kwh, 2),
-        "annual_revenue_inr":      round(annual_rev, 2),
-        "total_investment_inr":    round(capex_inr, 2),
-        "annual_opex_inr":         round(opex_inr, 2),
-        "payback_years":           round(payback, 1) if payback else None,
-        "npv_25yr_inr":            npv,
-        "lcoe_inr_kwh":            lcoe,
+        "annual_revenue_inr":      round(annual_gen_kwh * GRID_TARIFF_INR_KWH, 2),
+        "total_investment_inr":    round(total_capex, 2),
+        "annual_opex_inr":         round(opex_y1, 2),
+        "payback_years":           round(total_capex / (annual_gen_kwh * GRID_TARIFF_INR_KWH - opex_y1), 1),
+        "npv_25yr_inr":            metrics["npv"],
+        "irr_pct":                 metrics["irr"],
+        "lcoe_inr_kwh":            metrics["lcoe"],
+        "temp_derate_factor":      round(temp_derate_factor, 3)
     }

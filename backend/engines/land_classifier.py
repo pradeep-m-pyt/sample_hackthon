@@ -1,83 +1,113 @@
 import httpx
-import json
 from typing import List, Dict
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-# Categories and their OSM tags mapping
-LAND_CATEGORIES = {
-    "forest": ["forest", "wood", "tree_row"],
-    "wetland": ["wetland", "marsh", "swamp"],
-    "agriculture": ["farmland", "farmyard", "orchard", "vineyard", "meadow", "grassland"],
-    "urban": ["residential", "commercial", "industrial", "retail", "construction"],
-    "water": ["water", "river", "steam", "pond", "basin"],
-    "open_land": ["scrub", "heath", "bare_rock", "sand", "grass"]
+# Maps OSM 'landuse' and 'natural' tag values -> our internal categories
+OSM_TAG_MAP: Dict[str, str] = {
+    # Forest / Vegetation
+    "forest": "forest", "wood": "forest", "tree_row": "forest",
+    "trees": "forest",
+    # Wetland
+    "wetland": "wetland", "marsh": "wetland", "swamp": "wetland",
+    "bog": "wetland", "fen": "wetland",
+    # Agriculture
+    "farmland": "agriculture", "farmyard": "agriculture",
+    "orchard": "agriculture", "vineyard": "agriculture",
+    "meadow": "agriculture", "greenhouse_horticulture": "agriculture",
+    "allotments": "agriculture",
+    # Grassland - treat as open_land
+    "grassland": "open_land", "heath": "open_land", "scrub": "open_land",
+    "fell": "open_land", "bare_rock": "open_land", "sand": "open_land",
+    "grass": "open_land",
+    # Urban
+    "residential": "urban", "commercial": "urban", "industrial": "urban",
+    "retail": "urban", "construction": "urban", "landfill": "urban",
+    "brownfield": "urban",
+    # Water
+    "water": "water", "river": "water", "stream": "water",
+    "pond": "water", "basin": "water", "reservoir": "water",
+    "bay": "water", "coastline": "water",
 }
+
+CATEGORIES = ["forest", "wetland", "agriculture", "urban", "water", "open_land"]
+
+# Approximate area weight per element type (ways >> nodes)
+ELEMENT_WEIGHTS = {"way": 10, "relation": 50, "node": 1}
+
 
 async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
     """
-    Accepts a list of {lat, lng} dicts representing a polygon.
-    Queries Overpass API for features within that bounding box.
+    Queries the Overpass API for all OSM landuse/natural features
+    within the polygon bounding box and converts them into a
+    weighted distribution across our six land categories.
+    Uses element-type weighting (relation > way > node) to better
+    approximate actual spatial coverage.
     """
-    # 1. Calculate BBox for query
-    lats = [p['lat'] for p in polygon]
-    lngs = [p['lng'] for p in polygon]
+    lats = [p["lat"] for p in polygon]
+    lngs = [p["lng"] for p in polygon]
     min_lat, max_lat = min(lats), max(lats)
     min_lng, max_lng = min(lngs), max(lngs)
-    
-    # Simple Overpass query for landuse and natural tags in the bbox
-    # In a more advanced version, we would clip features to the polygon
+
     query = f"""
-    [out:json][timeout:25];
+    [out:json][timeout:30];
     (
       way["landuse"]({min_lat},{min_lng},{max_lat},{max_lng});
-      node["landuse"]({min_lat},{min_lng},{max_lat},{max_lng});
       relation["landuse"]({min_lat},{min_lng},{max_lat},{max_lng});
       way["natural"]({min_lat},{min_lng},{max_lat},{max_lng});
-      node["natural"]({min_lat},{min_lng},{max_lat},{max_lng});
       relation["natural"]({min_lat},{min_lng},{max_lat},{max_lng});
+      node["natural"]({min_lat},{min_lng},{max_lat},{max_lng});
     );
     out tags;
     """
-    
+
+    distribution = {cat: 0.0 for cat in CATEGORIES}
+
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(OVERPASS_URL, data={'data': query})
+        async with httpx.AsyncClient(timeout=35.0) as client:
+            response = await client.post(OVERPASS_URL, data={"data": query})
             data = response.json()
-            
+
         elements = data.get("elements", [])
-        
-        # 2. Distribute tags into categories
-        distribution = {cat: 0 for cat in LAND_CATEGORIES}
-        
+
         for element in elements:
             tags = element.get("tags", {})
-            landuse = tags.get("landuse")
-            natural = tags.get("natural")
-            
-            applied = False
-            for cat, tag_list in LAND_CATEGORIES.items():
-                if landuse in tag_list or natural in tag_list:
-                    distribution[cat] += 1
-                    applied = True
-            
-        # 3. Simple heuristic: if nothing found, default to open_land (or based on general location)
+            landuse = tags.get("landuse", "")
+            natural = tags.get("natural", "")
+            element_type = element.get("type", "node")
+            weight = ELEMENT_WEIGHTS.get(element_type, 1)
+
+            # Prefer landuse over natural for categorisation
+            raw_tag = landuse or natural
+            category = OSM_TAG_MAP.get(raw_tag)
+            if category:
+                distribution[category] += weight
+
         total = sum(distribution.values())
         if total == 0:
-            distribution["open_land"] = 1.0
+            # No OSM data found – reasonable default for undeveloped land
+            distribution = {
+                "open_land": 0.5, "agriculture": 0.3, "forest": 0.1,
+                "wetland": 0.0, "urban": 0.1, "water": 0.0
+            }
         else:
-            # Convert to percentages
-            distribution = {k: v/total for k, v in distribution.items()}
-            
+            distribution = {k: round(v / total, 4) for k, v in distribution.items()}
+
         dominant_type = max(distribution, key=distribution.get)
-        
+
         return {
             "distribution": distribution,
-            "dominant_type": dominant_type
+            "dominant_type": dominant_type,
+            "osm_feature_count": len(elements),
         }
+
     except Exception as e:
-        print(f"Error in land classification: {e}")
+        print(f"Land classification error: {e}")
         return {
-            "distribution": {"open_land": 1.0},
-            "dominant_type": "open_land"
+            "distribution": {
+                "open_land": 0.5, "agriculture": 0.3, "forest": 0.1,
+                "wetland": 0.0, "urban": 0.1, "water": 0.0
+            },
+            "dominant_type": "open_land",
+            "osm_feature_count": 0,
         }

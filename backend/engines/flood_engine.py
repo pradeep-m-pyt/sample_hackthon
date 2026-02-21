@@ -1,81 +1,128 @@
 import httpx
-from typing import Dict, List
+from typing import Dict
 
-# Curve Number mapping for different land classes (AMC II)
+# ── SCS Curve Number Table (NRCS TR-55, AMC-II condition) ──────────────────
 # Categories: forest, wetland, agriculture, urban, open_land, water
-CN_TABLE = {
-    "forest": 55,       # Woods - good cover
-    "wetland": 80,      # High retention but high runoff when full
-    "agriculture": 75,  # Cultivated land
-    "urban": 92,        # Residential 1/4 acre or less
-    "open_land": 68,     # Pasture/Scrub - fair condition
-    "water": 98         # Direct runoff (open water)
+CN_TABLE: Dict[str, float] = {
+    "forest":      55.0,   # Good forest cover, high infiltration
+    "wetland":     78.0,   # Permanently saturated – high CN
+    "agriculture": 75.0,   # Cultivated land with contour
+    "urban":       92.0,   # Residential / commercial impervious
+    "open_land":   68.0,   # Pasture / scrub – fair condition
+    "water":       98.0,   # Direct runoff
 }
 
-async def get_annual_rainfall(lat: float, lng: float) -> float:
-    """Fetches annual rainfall from NASA POWER API (PRECTOTCORR)"""
-    url = f"https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=PRECTOTCORR&community=AG&longitude={lng}&latitude={lat}&format=JSON&start=2023&end=2023"
-    try:
-        async with httpx.AsyncClient() as client:
-            res = await client.get(url)
-            data = res.json()
-            # Sum monthly totals
-            precip = data['properties']['parameter']['PRECTOTCORR']
-            annual_sum = sum(precip.values())
-            return annual_sum
-    except Exception as e:
-        print(f"NASA Rainfall API error: {e}")
-        return 1200.0 # Default fallback
+# Municipal stormwater treatment / flood damage cost (₹ per m³)
+# Based on NMCG & CPHEEO benchmarks for Indian urban areas
+STORMWATER_COST_INR_M3 = 55.0
 
-def calculate_runoff(P: float, CN: float) -> float:
-    """Standard SCS Curve Number runoff equation (Q in mm)"""
-    if P <= 0.2 * ((25400/CN) - 254):
-        return 0
-    S = (25400/CN) - 254
-    Ia = 0.2 * S
-    Q = ((P - Ia)**2) / (P + 0.8 * S)
-    return Q
+# Annual rainfall API (NASA POWER)
+NASA_POWER_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
+
+
+async def get_annual_rainfall_mm(lat: float, lng: float) -> float:
+    """
+    Fetches the corrected precipitation total for the most recent
+    complete year (2023) from NASA POWER (PRECTOTCORR = mm/month).
+    Returns annual sum in mm; uses 1 200 mm as a safe fallback.
+    """
+    params = {
+        "parameters": "PRECTOTCORR",
+        "community": "AG",
+        "longitude": str(lng),
+        "latitude": str(lat),
+        "format": "JSON",
+        "start": "2023",
+        "end": "2023",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            res = await client.get(NASA_POWER_URL, params=params)
+            data = res.json()
+        monthly = data["properties"]["parameter"]["PRECTOTCORR"]
+        # monthly dict keys like "202301", "202302", …
+        return round(sum(monthly.values()), 2)
+    except Exception as e:
+        print(f"NASA POWER rainfall error: {e}")
+        return 1200.0
+
+
+def scs_runoff_mm(P_mm: float, CN: float) -> float:
+    """
+    Computes surface runoff depth (mm) from rainfall P (mm) and
+    Curve Number via the standard SCS TR-55 formula.
+    """
+    if CN <= 0 or CN >= 100:
+        return 0.0
+    S = (25_400 / CN) - 254          # Potential maximum retention (mm)
+    Ia = 0.2 * S                      # Initial abstraction
+    if P_mm <= Ia:
+        return 0.0
+    Q = ((P_mm - Ia) ** 2) / (P_mm + 0.8 * S)
+    return round(Q, 2)
+
 
 async def run_flood_analysis(
-    lat: float, 
-    lng: float, 
+    lat: float,
+    lng: float,
     distribution: Dict[str, float],
     elevation: float,
-    slope: float
+    slope: float,
 ) -> Dict:
-    annual_p = await get_annual_rainfall(lat, lng)
-    
-    # 1. Weighted Curve Number for current land
-    weighted_cn_current = sum(distribution[cat] * CN_TABLE.get(cat, 70) for cat in distribution)
-    
-    # 2. Assume development increases CN (typical urban CN is ~90-95)
-    # We'll assume a "standard" development scenario targets a CN of 92
+    """
+    Full flood-risk analysis for a land parcel:
+      1. Fetch real annual rainfall from NASA POWER
+      2. Compute weighted Curve Number for current land cover
+      3. Compute surface-runoff depth for current vs. full-development scenario
+      4. Monetise avoided flood damage in ₹
+      5. Return a composite risk score (0–1)
+    """
+    annual_p = await get_annual_rainfall_mm(lat, lng)
+
+    # 1. Weighted Curve Number (current land cover)
+    cn_current = sum(
+        distribution.get(cat, 0.0) * CN_TABLE.get(cat, 70.0)
+        for cat in CN_TABLE
+    )
+
+    # 2. Full urban-development scenario (CN → 92)
     cn_developed = 92.0
-    
-    # 3. Calculate Runoff
-    runoff_current = calculate_runoff(annual_p, weighted_cn_current)
-    runoff_developed = calculate_runoff(annual_p, cn_developed)
-    
-    delta_runoff_mm = max(0, runoff_developed - runoff_current)
-    
-    # 4. Economic Value
-    # Heuristic: ₹50 per cubic meter of avoided flood damage (based on municipal benchmarks)
-    # 1mm runoff over 1 hectare = 10 m³
-    # We'll calculate this in the aggregator.
-    
-    # 5. Flood Risk Score (0-1)
-    # Combined factor of rainfall, elevation (low is risky), and slope (steep is risky for flash floods)
-    # Normalize elevation: < 5m is high risk
-    elev_factor = max(0, min(1, (15 - elevation) / 15))
-    rain_factor = max(0, min(1, annual_p / 2500))
-    
-    risk_score = (0.4 * elev_factor) + (0.4 * rain_factor) + (0.2 * (slope/20))
-    
+
+    # 3. Runoff depths
+    runoff_current_mm  = scs_runoff_mm(annual_p, cn_current)
+    runoff_developed_mm = scs_runoff_mm(annual_p, cn_developed)
+    delta_runoff_mm    = max(0.0, runoff_developed_mm - runoff_current_mm)
+
+    # 4. Monetise — per hectare:
+    # 1 mm runoff × 1 ha = 10 m³
+    # We report a per-m² basis so the aggregator can scale by area
+    annual_damage_avoided_inr_per_m2 = (delta_runoff_mm / 1000.0) * STORMWATER_COST_INR_M3
+
+    # 5. Composite risk score (0–1)
+    # Low elevation → higher risk; high rainfall → higher risk; steep slope → flash-flood risk
+    elev_factor  = max(0.0, min(1.0, (20.0 - elevation) / 20.0))   # 0 m elev = 1.0 risk
+    rain_factor  = max(0.0, min(1.0, annual_p / 3000.0))            # 3 000 mm = 1.0 risk
+    slope_factor = max(0.0, min(1.0, slope / 30.0))                 # 30 % slope = 1.0
+
+    risk_score = round(
+        0.45 * elev_factor + 0.35 * rain_factor + 0.20 * slope_factor, 4
+    )
+
+    if risk_score > 0.7:
+        risk_label = "High"
+    elif risk_score > 0.35:
+        risk_label = "Moderate"
+    else:
+        risk_label = "Low"
+
     return {
-        "annual_rainfall_mm": annual_p,
-        "cn_current": weighted_cn_current,
-        "runoff_current_mm": runoff_current,
-        "delta_runoff_mm": delta_runoff_mm,
-        "flood_risk_score": min(1.0, risk_score),
-        "risk_label": "High" if risk_score > 0.7 else "Moderate" if risk_score > 0.3 else "Low"
+        "annual_rainfall_mm":              annual_p,
+        "cn_current":                      round(cn_current, 2),
+        "cn_developed":                    cn_developed,
+        "runoff_current_mm":               runoff_current_mm,
+        "runoff_developed_mm":             runoff_developed_mm,
+        "delta_runoff_mm":                 delta_runoff_mm,
+        "annual_damage_avoided_inr_per_m2": round(annual_damage_avoided_inr_per_m2, 4),
+        "flood_risk_score":                min(1.0, risk_score),
+        "risk_label":                      risk_label,
     }

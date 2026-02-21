@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { MapContainer, TileLayer, FeatureGroup, useMap } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import L from "leaflet";
 
-// Fix Leaflet icons
+// Fix Leaflet default icon paths broken by webpack
 const fixLeafletIcons = () => {
     // @ts-ignore
     delete L.Icon.Default.prototype._getIconUrl;
@@ -16,11 +16,25 @@ const fixLeafletIcons = () => {
     });
 };
 
-interface LandMapProps {
-    onPolygonComplete: (coords: { lat: number; lng: number }[], area: number) => void;
+// ── Internal component that can imperatively fly the map ──────────────────
+interface FlyToControlProps {
+    flyToRef: React.MutableRefObject<((lat: number, lng: number, zoom?: number) => void) | null>;
+}
+function FlyToControl({ flyToRef }: FlyToControlProps) {
+    const map = useMap();
+    flyToRef.current = (lat, lng, zoom = 15) => {
+        map.flyTo([lat, lng], zoom, { animate: true, duration: 1.2 });
+    };
+    return null;
 }
 
-const LandMap = ({ onPolygonComplete }: LandMapProps) => {
+// ── Polygon created callback ───────────────────────────────────────────────
+interface LandMapProps {
+    onPolygonComplete: (coords: { lat: number; lng: number }[], area: number) => void;
+    flyToRef: React.MutableRefObject<((lat: number, lng: number, zoom?: number) => void) | null>;
+}
+
+const LandMap = ({ onPolygonComplete, flyToRef }: LandMapProps) => {
     useEffect(() => {
         fixLeafletIcons();
     }, []);
@@ -30,18 +44,15 @@ const LandMap = ({ onPolygonComplete }: LandMapProps) => {
         if (layerType === "polygon") {
             const latlngs = layer.getLatLngs()[0];
             const coords = latlngs.map((ll: any) => ({ lat: ll.lat, lng: ll.lng }));
-
-            // Calculate area in square meters using Leaflet's built-in utility
             const area = L.GeometryUtil.geodesicArea(latlngs);
-
             onPolygonComplete(coords, area);
         }
     };
 
     return (
         <MapContainer
-            center={[13.0827, 80.2707]} // Default to Chennai
-            zoom={13}
+            center={[20.5937, 78.9629]}  // Default to centre of India
+            zoom={5}
             style={{ height: "100%", width: "100%" }}
             className="z-0"
         >
@@ -49,6 +60,7 @@ const LandMap = ({ onPolygonComplete }: LandMapProps) => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <FlyToControl flyToRef={flyToRef} />
             <FeatureGroup>
                 <EditControl
                     position="topleft"
@@ -65,9 +77,7 @@ const LandMap = ({ onPolygonComplete }: LandMapProps) => {
                                 color: "#e1e1e1",
                                 message: "<strong>Error:</strong> shape edges cannot cross!",
                             },
-                            shapeOptions: {
-                                color: "#16a34a",
-                            },
+                            shapeOptions: { color: "#16a34a", weight: 3 },
                         },
                     }}
                 />

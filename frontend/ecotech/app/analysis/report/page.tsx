@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
     Download, Sprout, Shield, Sun,
     TreeDeciduous, Info, CheckCircle2,
-    TrendingUp, Activity
+    TrendingUp, Activity, Loader2
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import api from "@/lib/api";
@@ -51,14 +51,18 @@ function ReportContent() {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`EnvROI_Report_${projectId}.pdf`);
+        pdf.save(`EcoTech_Dossier_${projectId}.pdf`);
     };
 
-    if (loading || !data) return <div className="p-20 text-center">Loading Report...</div>;
+    if (loading || !data) return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-[#FAF7F2] gap-6">
+            <Loader2 className="w-12 h-12 animate-spin text-violet-600" />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] animate-pulse">Generating Report Instance</p>
+        </div>
+    );
 
     const { project, analysis } = data;
 
-    // Projection Data
     const projectionData = Array.from({ length: 31 }, (_, i) => ({
         year: i,
         eco: (analysis.environmental_npv / 30) * i,
@@ -66,129 +70,151 @@ function ReportContent() {
     }));
 
     return (
-        <div className="bg-slate-50 min-h-screen py-12">
-            <div className="max-w-5xl mx-auto px-4 space-y-8">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-xl font-bold text-slate-400">Policy Brief / Report</h1>
+        <div className="bg-[#FAF7F2] min-h-screen py-16">
+            <div className="max-w-5xl mx-auto px-6 space-y-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1">
+                        <h1 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Strategic Documentation</h1>
+                        <p className="text-2xl font-black text-indigo-950 tracking-tight">Environmental ROI Policy Brief</p>
+                    </div>
                     <button
                         onClick={exportPDF}
-                        className="px-6 py-2 bg-slate-900 text-white rounded-full font-bold flex items-center gap-2 hover:bg-slate-800 transition-all"
+                        className="px-8 py-4 bg-indigo-950 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-black transition-all shadow-xl shadow-indigo-100"
                     >
                         <Download className="w-4 h-4" />
-                        Download PDF
+                        Download PDF Dossier
                     </button>
                 </div>
 
-                <div ref={reportRef} className="bg-white p-16 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col gap-12">
+                <div ref={reportRef} className="bg-white p-20 rounded-[4rem] shadow-2xl border border-violet-50 flex flex-col gap-16 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-violet-50/30 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+
                     {/* Header */}
-                    <div className="flex justify-between items-start border-b border-slate-100 pb-10">
-                        <div className="flex items-center gap-3 text-green-700 font-black text-3xl">
-                            <Logo size={40} />
-                        </div>
-                        <div className="text-right">
-                            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Report Date</div>
-                            <div className="font-bold text-slate-900">{new Date().toLocaleDateString()}</div>
-                            <div className="text-[10px] text-slate-400 mt-1">Ref ID: {project.id}</div>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-violet-100 pb-12 relative z-10">
+                        <Logo variant="lavender" size={48} />
+                        <div className="text-left md:text-right mt-6 md:mt-0">
+                            <div className="text-[9px] font-black text-violet-400 uppercase tracking-[0.3em]">Issue Date</div>
+                            <div className="font-black text-indigo-950 text-lg uppercase">{new Date().toLocaleDateString('en-GB')}</div>
+                            <div className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Instance ID: {project.id.slice(0, 8)}</div>
                         </div>
                     </div>
 
                     {/* Summary */}
-                    <div className="grid md:grid-cols-2 gap-12">
-                        <div className="space-y-4">
-                            <h2 className="text-3xl font-bold text-slate-900">Executive Summary</h2>
-                            <p className="text-slate-600 leading-relaxed font-medium">
-                                This report provides a multi-criteria valuation for **{project.name}**,
-                                analyzing 30-year economic flows from ecosystem services versus traditional development.
-                                The analysis utilizes IPCC carbon stock factors, USDA-SCS flood modeling, and NASA irradiance data.
+                    <div className="grid md:grid-cols-2 gap-16 relative z-10">
+                        <div className="space-y-6">
+                            <h2 className="text-4xl font-black text-indigo-950 tracking-tighter">Executive Intelligence</h2>
+                            <p className="text-slate-500 leading-relaxed font-bold text-sm">
+                                This strategic brief provides a multi-dimensional valuation for <span className="text-violet-600">“{project.name}”</span>,
+                                simulating 30-year economic flows from ecosystem services against intensive development paths.
+                                Analysis parameters include IPCC carbon sequestration benchmarks, USDA rainfall modeling, and NASA spectral irradiance.
                             </p>
-                            <div className="grid grid-cols-2 gap-4 pt-4">
-                                <div className="p-4 bg-slate-50 rounded-2xl">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase">Total Area</div>
-                                    <div className="text-lg font-bold text-slate-900">{(project.area_m2 / 10000).toFixed(2)} Ha</div>
+                            <div className="grid grid-cols-2 gap-6 pt-6">
+                                <div className="p-6 bg-violet-50/50 rounded-[2rem] border border-violet-100">
+                                    <div className="text-[8px] font-black text-violet-400 uppercase tracking-[0.2em] mb-1">Managed Area</div>
+                                    <div className="text-xl font-black text-indigo-950">{(project.area_m2 / 10000).toFixed(2)} HA</div>
                                 </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase">Primary Land</div>
-                                    <div className="text-lg font-bold text-slate-900 capitalize">{project.dominant_type}</div>
+                                <div className="p-6 bg-indigo-50/50 rounded-[2rem] border border-indigo-100">
+                                    <div className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Dominant Type</div>
+                                    <div className="text-xl font-black text-indigo-950 capitalize">{project.dominant_type}</div>
                                 </div>
                             </div>
                         </div>
-                        <div className="p-8 rounded-[2rem] bg-slate-900 text-white flex flex-col justify-center gap-4">
-                            <div className="text-sm font-bold text-green-400 uppercase tracking-widest">Sustainability Score</div>
-                            <div className="text-6xl font-black">{analysis.composite_score}</div>
-                            <p className="text-slate-400 text-xs leading-relaxed">
-                                A score of {analysis.composite_score} indicates that this parcel has {analysis.composite_score > 60 ? 'significant natural capital' : 'moderate ecological potential'}
-                                and should be optimized using nature-based solutions.
+                        <div className="p-10 rounded-[3rem] bg-indigo-950 text-white flex flex-col justify-center gap-6 relative shadow-2xl overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/20 rounded-full blur-3xl" />
+                            <div className="text-[10px] font-black text-violet-400 uppercase tracking-[0.4em]">Eco-Stability Score</div>
+                            <div className="text-8xl font-black tracking-widest leading-none text-white drop-shadow-2xl">{analysis.composite_score}</div>
+                            <p className="text-violet-100/60 text-xs font-bold leading-relaxed uppercase tracking-wide border-t border-white/5 pt-6">
+                                Index {analysis.composite_score} confirms {analysis.composite_score > 60 ? 'high priority restoration' : 'moderate transition'} potential for this site.
                             </p>
                         </div>
                     </div>
 
                     {/* Charts */}
-                    <div className="space-y-6 pt-6 border-t border-slate-50">
-                        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                            <TrendingUp className="w-5 h-5 text-green-600" />
-                            30-Year Economic Projection (NPV)
-                        </h3>
-                        <div className="h-[400px] w-full bg-slate-50 p-6 rounded-[2rem]">
+                    <div className="space-y-8 pt-8 border-t border-violet-100 relative z-10">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-2xl font-black text-indigo-950 tracking-tighter flex items-center gap-4">
+                                <TrendingUp className="w-8 h-8 text-violet-600" />
+                                30-Year Capital Flow Projection
+                            </h3>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-violet-600 rounded-full" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Natural Capital</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-indigo-950 rounded-full" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Direct Revenue</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="h-[450px] w-full bg-white p-8 rounded-[3rem] border border-violet-50 shadow-inner">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={projectionData}>
                                     <defs>
                                         <linearGradient id="colorEco" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#16a34a" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
                                         </linearGradient>
                                         <linearGradient id="colorFin" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="#1e1b4b" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#1e1b4b" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="year" />
-                                    <YAxis tickFormatter={(val) => `₹${(val / 10000000).toFixed(1)}Cr`} />
-                                    <Tooltip formatter={(val: any) => `₹${val.toLocaleString()}`} />
-                                    <Legend />
-                                    <Area type="monotone" dataKey="eco" name="Nature Value (NPV)" stroke="#16a34a" fillOpacity={1} fill="url(#colorEco)" />
-                                    <Area type="monotone" dataKey="financial" name="Market Value (NPV)" stroke="#3b82f6" fillOpacity={1} fill="url(#colorFin)" />
+                                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="year" stroke="#94a3b8" fontSize={10} fontWeight={900} />
+                                    <YAxis tickFormatter={(val) => `₹${(val / 10000000).toFixed(0)}Cr`} stroke="#94a3b8" fontSize={10} fontWeight={900} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '24px', border: '1px solid #f1f5f9', fontWeight: 900, fontSize: '12px' }}
+                                        formatter={(val: any) => `₹${val.toLocaleString()}`}
+                                    />
+                                    <Area type="monotone" dataKey="eco" name="Nature Value" stroke="#7c3aed" strokeWidth={4} fillOpacity={1} fill="url(#colorEco)" />
+                                    <Area type="monotone" dataKey="financial" name="Market Value" stroke="#1e1b4b" strokeWidth={4} fillOpacity={1} fill="url(#colorFin)" />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
                     {/* Metrics Grid */}
-                    <div className="grid grid-cols-3 gap-8 pt-8">
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-blue-600 font-bold text-sm">
-                                <Shield className="w-4 h-4" /> Flood Protection
+                    <div className="grid grid-cols-3 gap-12 pt-12 relative z-10">
+                        <div className="space-y-4 p-8 rounded-[2.5rem] bg-white border border-violet-50 shadow-sm group hover:shadow-xl transition-all">
+                            <div className="flex items-center gap-3 text-violet-600 font-black text-[10px] uppercase tracking-widest">
+                                <Shield className="w-4 h-4" /> Storm Resilience
                             </div>
-                            <div className="text-2xl font-bold">₹{analysis.flood_json.annual_flood_cost_avoided || '480,000'} <span className="text-xs text-slate-400">/yr</span></div>
-                            <p className="text-[10px] text-slate-500">Value of avoided storm damage based on {analysis.flood_json.delta_runoff_mm.toFixed(1)}mm runoff reduction.</p>
+                            <div className="text-3xl font-black text-indigo-950 tracking-tight">₹{analysis.flood_json.annual_flood_cost_avoided || '480,000'} <span className="text-[10px] text-slate-400 font-bold uppercase ml-2">/ Annum</span></div>
+                            <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-wide">Avoided mitigation costs via {analysis.flood_json.delta_runoff_mm.toFixed(1)}mm sequestration.</p>
                         </div>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-amber-600 font-bold text-sm">
-                                <Sun className="w-4 h-4" /> Power Generation
+                        <div className="space-y-4 p-8 rounded-[2.5rem] bg-white border border-violet-50 shadow-sm group hover:shadow-xl transition-all">
+                            <div className="flex items-center gap-3 text-amber-500 font-black text-[10px] uppercase tracking-widest">
+                                <Sun className="w-4 h-4" /> Energy Yield
                             </div>
-                            <div className="text-2xl font-bold">₹{analysis.solar_json.annual_revenue_inr.toLocaleString()} <span className="text-xs text-slate-400">/yr</span></div>
-                            <p className="text-[10px] text-slate-500">Based on {analysis.solar_json.installed_capacity_kw}kW peak capacity and regional irradiance.</p>
+                            <div className="text-3xl font-black text-indigo-950 tracking-tight">₹{analysis.solar_json.annual_revenue_inr.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold uppercase ml-2">/ Annum</span></div>
+                            <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-wide">Expected revenue from {analysis.solar_json.installed_capacity_kw}kWp spectral optimization.</p>
                         </div>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                                <TreeDeciduous className="w-4 h-4" /> Carbon Capture
+                        <div className="space-y-4 p-8 rounded-[2.5rem] bg-white border border-violet-50 shadow-sm group hover:shadow-xl transition-all">
+                            <div className="flex items-center gap-3 text-emerald-600 font-black text-[10px] uppercase tracking-widest">
+                                <TreeDeciduous className="w-4 h-4" /> Carbon Assets
                             </div>
-                            <div className="text-2xl font-bold">₹{analysis.carbon_json.annual_carbon_value_inr.toLocaleString()} <span className="text-xs text-slate-400">/yr</span></div>
-                            <p className="text-[10px] text-slate-500">Social return on {analysis.carbon_json.annual_sequestration_co2_tons} tons of CO₂ sequestered annually.</p>
+                            <div className="text-3xl font-black text-indigo-950 tracking-tight">₹{analysis.carbon_json.annual_carbon_value_inr.toLocaleString()} <span className="text-[10px] text-slate-400 font-bold uppercase ml-2">/ Annum</span></div>
+                            <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-wide">Social return on {analysis.carbon_json.annual_sequestration_co2_tons} tons of organic capture.</p>
                         </div>
                     </div>
 
                     {/* Recommendations Summary */}
-                    <div className="p-8 rounded-[2rem] bg-green-50 border border-green-100 space-y-4">
-                        <h3 className="font-bold text-green-900 flex items-center gap-2">
-                            <CheckCircle2 className="w-5 h-5" /> Best Strategy: Hybrid Restoration
+                    <div className="p-12 rounded-[3.5rem] bg-violet-600 text-white space-y-6 relative overflow-hidden shadow-2xl">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-12 translate-x-12" />
+                        <h3 className="font-black text-white text-2xl tracking-tight flex items-center gap-4">
+                            <CheckCircle2 className="w-8 h-8" /> Deployment Configuration: Hybrid Optimal
                         </h3>
-                        <p className="text-sm text-green-800 leading-relaxed font-medium">
-                            The optimal land use scenario involves maintaining 40% natural tree cover to ensure flood resilience,
-                            while deploying solar infrastructure on the remaining 20% of open land. This provides stable revenue
-                            while preserving high-value ecological services.
+                        <p className="text-lg text-violet-50 leading-relaxed font-bold tracking-tight relative z-10">
+                            The suggested matrix prioritizes maintaining 40% indigenous canopy for hydrology stability,
+                            supplemented by a 20% solar array in high-irradiance zones. This configuration maximizes
+                            immediate fiscal IRR while securing long-term natural capital value for institutional investors.
                         </p>
                     </div>
+                </div>
+
+                <div className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-[0.5em] pb-12">
+                    EcoTech Environmental Systems • Proprietary Intelligence Report
                 </div>
             </div>
         </div>
@@ -197,7 +223,11 @@ function ReportContent() {
 
 export default function ReportPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-vh-screen bg-[#FAF7F2]">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+            </div>
+        }>
             <ReportContent />
         </Suspense>
     );

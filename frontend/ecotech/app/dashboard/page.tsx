@@ -32,89 +32,103 @@ export default function DashboardPage() {
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-[80vh]">
-            <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            <Loader2 className="w-12 h-12 animate-spin text-violet-600" />
         </div>
     );
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-12 space-y-10">
+        <div className="max-w-7xl mx-auto px-6 py-16 space-y-12 bg-[#FAF7F2] min-h-screen">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Eco Dashboard</h1>
-                    <p className="text-slate-500 font-medium">Manage your land valuation projects and insights.</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-violet-100 pb-10">
+                <div className="space-y-2">
+                    <h1 className="text-5xl font-black text-indigo-950 tracking-tighter">Your Ecosystems</h1>
+                    <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs">Project Portfolio & Valuation Hub</p>
                 </div>
                 <Link
                     href="/map"
-                    className="px-6 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-100 flex items-center gap-2 group"
+                    className="px-8 py-5 bg-violet-600 text-white rounded-[2rem] font-black text-lg hover:bg-violet-700 transition-all shadow-2xl shadow-violet-200 flex items-center gap-3 group active:scale-[0.98]"
                 >
-                    <Plus className="w-5 h-5" />
-                    New Land Analysis
+                    <Plus className="w-6 h-6 stroke-[3]" />
+                    <span>Analyze New Land</span>
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
             </div>
 
             {/* Grid */}
             {projects.length === 0 ? (
-                <div className="text-center py-20 bg-white border border-dashed border-slate-300 rounded-[3rem]">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
-                        <BarChart3 className="w-10 h-10" />
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-24 bg-white border border-violet-100 rounded-[4rem] shadow-2xl shadow-violet-100/50 relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-violet-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                    <div className="relative z-10">
+                        <div className="w-24 h-24 bg-violet-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-violet-600 shadow-inner">
+                            <BarChart3 className="w-12 h-12 stroke-[2.5]" />
+                        </div>
+                        <h3 className="text-3xl font-black text-indigo-950 tracking-tight mb-3">No active projects</h3>
+                        <p className="text-slate-400 font-medium max-w-sm mx-auto mb-10 text-sm leading-relaxed">
+                            Your environmental GIS portfolio is empty. Launch the mapping engine to generate your first valuation report.
+                        </p>
+                        <Link href="/map" className="inline-flex items-center gap-2 text-violet-600 font-black uppercase tracking-widest hover:text-indigo-950 transition-colors">
+                            Launch Map Engine <ArrowRight className="w-4 h-4" />
+                        </Link>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900">No projects yet</h3>
-                    <p className="text-slate-500 mb-8">Start by drawing a land area on the interactive map.</p>
-                    <Link href="/map" className="text-green-600 font-bold hover:underline">
-                        Go to Map →
-                    </Link>
-                </div>
+                </motion.div>
             ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {projects.map((project, i) => (
                         <motion.div
                             key={project.id}
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="group glass-card p-6 rounded-[2rem] bg-white border border-slate-200 hover:border-green-300 hover:shadow-xl hover:shadow-green-50 transition-all flex flex-col gap-6"
+                            transition={{ delay: i * 0.1 }}
+                            className="group relative bg-white rounded-[3rem] border border-violet-100 p-8 hover:border-violet-300 hover:shadow-2xl hover:shadow-violet-200/50 transition-all flex flex-col gap-8 overflow-hidden"
                         >
-                            <div className="flex justify-between items-start">
-                                <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                                    <MapPin className="w-6 h-6" />
+                            <div className="flex justify-between items-start relative z-10">
+                                <div className="w-14 h-14 bg-violet-50 rounded-[1.5rem] flex items-center justify-center text-violet-600 group-hover:bg-violet-600 group-hover:text-white group-hover:rotate-6 transition-all duration-300 shadow-sm">
+                                    <MapPin className="w-7 h-7 stroke-[2.5]" />
                                 </div>
-                                <div className="flex items-center gap-2 text-slate-400">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">{new Date(project.created_at).toLocaleDateString()}</span>
+                                <div className="px-4 py-2 bg-indigo-950 rounded-full flex items-center gap-2 text-white shadow-lg">
+                                    <Calendar className="w-3 h-3 text-violet-400" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">{new Date(project.created_at).toLocaleDateString()}</span>
                                 </div>
                             </div>
 
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-bold text-slate-900 line-clamp-1">{project.name}</h3>
+                            <div className="space-y-2 relative z-10">
+                                <h3 className="text-2xl font-black text-indigo-950 line-clamp-1 tracking-tight">{project.name}</h3>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-tighter">{(project.area_m2 / 10000).toFixed(2)} Hectares</span>
-                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-widest leading-none">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{(project.area_m2 / 10000).toFixed(2)} Hectares</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-violet-200" />
+                                    <span className="px-3 py-1 bg-violet-50 text-violet-700 text-[9px] font-black rounded-lg uppercase tracking-widest">
                                         {project.dominant_type}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between text-xs font-bold text-slate-500">
-                                <span>INTENT</span>
-                                <span className="text-slate-900 capitalize">{project.user_intent}</span>
+                            <div className="p-5 bg-[#FAF7F2] rounded-[1.5rem] flex items-center justify-between shadow-inner">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategy</span>
+                                <span className="text-xs font-black text-indigo-900 capitalize px-3 py-1 bg-white rounded-lg shadow-sm">{project.user_intent}</span>
                             </div>
 
-                            <div className="flex items-center gap-2 pt-2">
+                            <div className="flex items-center gap-3 pt-2 relative z-10">
                                 <Link
                                     href={`/analysis?id=${project.id}`}
-                                    className="flex-1 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 text-center hover:bg-slate-50 transition-all"
+                                    className="flex-1 py-4 bg-indigo-950 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest text-center hover:bg-black transition-all shadow-xl shadow-indigo-100"
                                 >
-                                    View Details
+                                    View Report
                                 </Link>
                                 <Link
                                     href={`/analysis/report?id=${project.id}`}
-                                    className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all"
+                                    className="w-14 h-14 bg-white border border-violet-100 rounded-2xl flex items-center justify-center text-violet-600 hover:bg-violet-600 hover:text-white transition-all shadow-sm"
+                                    title="Export Data"
                                 >
-                                    <FileText className="w-5 h-5" />
+                                    <FileText className="w-6 h-6" />
                                 </Link>
                             </div>
+
+                            {/* Decorative background element */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50/30 rounded-bl-full -z-0 translate-x-12 -translate-y-12 group-hover:scale-150 transition-transform duration-500" />
                         </motion.div>
                     ))}
                 </div>

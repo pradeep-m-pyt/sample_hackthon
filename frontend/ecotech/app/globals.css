@@ -1,55 +1,64 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #16a34a;
+  --color-primary: #7c3aed;
+  /* Lavender/Violet */
   --color-primary-foreground: #ffffff;
-  --color-secondary: #dcfce7;
-  --color-secondary-foreground: #166534;
-  --color-accent: #f0fdf4;
-  --color-muted: #f8fafc;
-  --color-border: #e2e8f0;
+  --color-secondary: #faf7f2;
+  /* Beige/Cream */
+  --color-secondary-foreground: #4c1d95;
+  --color-accent: #f5f3ff;
+  /* Very light lavender */
+  --color-muted: #fbfaf8;
+  --color-border: #e9e5e0;
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #faf7f2;
+  /* Beige base */
+  --foreground: #1e1b4b;
+  /* Deep indigo for contrast */
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1e1b4b;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #16a34a;
+  --popover-foreground: #1e1b4b;
+  --primary: #7c3aed;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --secondary: #ede9fe;
+  --secondary-foreground: #4c1d95;
+  --muted: #f5f3ff;
+  --muted-foreground: #6b7280;
+  --accent: #f5f3ff;
+  --accent-foreground: #4c1d95;
   --destructive: #ef4444;
-  --destructive-foreground: #f8fafc;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #16a34a;
-  --radius: 0.75rem;
+  --destructive-foreground: #ffffff;
+  --border: #e9e5e0;
+  --input: #e9e5e0;
+  --ring: #7c3aed;
+  --radius: 1rem;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   overflow-x: hidden;
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  box-shadow: 0 10px 40px -10px rgba(124, 58, 237, 0.08);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #16a34a 0%, #065f46 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.beige-gradient {
+  background: linear-gradient(180deg, #faf7f2 0%, #ffffff 100%);
 }

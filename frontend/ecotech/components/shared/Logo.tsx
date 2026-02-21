@@ -4,7 +4,7 @@ import React from "react";
 import { motion } from "framer-motion";
 
 interface LogoProps {
-    variant?: "earthy" | "forest" | "moss";
+    variant?: "earthy" | "forest" | "moss" | "lavender";
     size?: number;
     showText?: boolean;
     className?: string;
@@ -66,6 +66,18 @@ export const Logo: React.FC<LogoProps> = ({
                     trend: "#c8f080",
                     leaf: "rgba(255,255,255,0.25)",
                     pin: "#f5d06a",
+                };
+            case "lavender":
+                return {
+                    text: "text-[#4c1d95]",
+                    roi: "text-[#7c3aed]",
+                    tag: "text-[#7c3aed]/60",
+                    water: "#a78bfa",
+                    terrain: "#ddd6fe",
+                    bars: ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed"],
+                    trend: "#4c1d95",
+                    leaf: "#a78bfa",
+                    pin: "#7c3aed",
                 };
             default: // earthy
                 return {

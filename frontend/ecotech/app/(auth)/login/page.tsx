@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sprout, Mail, Lock, Loader2, ArrowRight } from "lucide-react";
+import { MoveRight, ArrowLeft, Mail, Lock, User, CheckCircle2, Shield, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { GoogleLogin } from "@react-oauth/google";
+import { Logo } from "@/components/shared/Logo";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -21,30 +22,27 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const formData = new FormData();
-            formData.append("username", email);
-            formData.append("password", password);
-
-            const res = await api.post("/auth/login", formData);
+            const res = await api.post("/auth/login", { email, password });
             localStorage.setItem("token", res.data.access_token);
             router.push("/dashboard");
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Invalid email or password");
+            setError(err.response?.data?.detail || "Login failed");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGoogleSuccess = async (response: any) => {
+    const handleGoogleSuccess = async (credentialResponse: any) => {
         setLoading(true);
         setError("");
         try {
             const res = await api.post("/auth/google/login", {
-                token: response.credential
+                token: credentialResponse.credential
             });
             localStorage.setItem("token", res.data.access_token);
             router.push("/dashboard");
         } catch (err: any) {
+            console.error("Google Auth Error:", err);
             setError(err.response?.data?.detail || "Google login failed");
         } finally {
             setLoading(false);
@@ -52,24 +50,22 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-green-50 flex items-center justify-center px-4 relative overflow-hidden">
-            {/* Background blobs */}
-            <div className="absolute top-0 left-0 w-96 h-96 bg-green-200/50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-200/50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 relative overflow-hidden bg-slate-50">
+            {/* Background elements */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-green-100/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-md"
+                className="w-full max-w-md relative z-10"
             >
                 <div className="glass-card p-8 rounded-[2.5rem] bg-white shadow-2xl">
                     <div className="flex flex-col items-center gap-4 mb-8">
-                        <Link href="/" className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-200">
-                            <Sprout className="w-8 h-8" />
-                        </Link>
                         <div className="text-center">
-                            <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
-                            <p className="text-slate-500 text-sm">Sign in to your EcoTech account</p>
+                            <Logo size={48} className="justify-center mb-6" />
+                            <h1 className="text-3xl font-bold text-slate-900 mb-2 font-fraunces">Welcome Back</h1>
+                            <p className="text-slate-500 text-sm">Sign in to your EnvROI account</p>
                         </div>
                     </div>
 
@@ -124,7 +120,7 @@ export default function LoginPage() {
                             ) : (
                                 <>
                                     Sign In
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    <MoveRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </>
                             )}
                         </button>

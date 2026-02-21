@@ -48,7 +48,7 @@ async def recommend(
         db.add(ai_rec)
         
     ai_rec.recommendation_text = recommendation_text
-    ai_rec.model_used = "llama-3.1-70b-versatile"
+    ai_rec.model_used = "llama-3.3-70b-versatile"
     db.commit()
     
     return {"recommendation": recommendation_text}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { MoveRight, Shield, Sun, TreeDeciduous, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Logo } from "@/components/shared/Logo";
 
 export default function LandingPage() {
   const container = {
@@ -33,13 +34,21 @@ export default function LandingPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-4 mb-4"
+          >
+            <Logo variant="earthy" size={64} showText={false} />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             className="px-4 py-1.5 rounded-full bg-green-50 border border-green-100 text-green-700 text-sm font-medium flex items-center gap-2"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            Making Nature's Value Visible
+            EnvROI: Making Nature's Value Visible
           </motion.div>
 
           <motion.h1

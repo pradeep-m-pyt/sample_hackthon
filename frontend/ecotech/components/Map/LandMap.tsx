@@ -40,6 +40,7 @@ const LandMap = ({ onPolygonComplete }: LandMapProps) => {
 
     return (
         <MapContainer
+            key="envroi-map-v1"
             center={[13.0827, 80.2707]} // Default to Chennai
             zoom={13}
             style={{ height: "100%", width: "100%" }}

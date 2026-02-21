@@ -19,6 +19,7 @@ function AnalysisContent() {
     const [loading, setLoading] = useState(true);
     const [aiLoading, setAiLoading] = useState(false);
     const [aiRec, setAiRec] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (projectId) {
@@ -52,8 +53,15 @@ function AnalysisContent() {
         try {
             const res = await api.post(`/ai/recommend/${projectId}`);
             setAiRec(res.data.recommendation);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error("AI Recommendation Error Detailed:", {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status,
+                headers: err.response?.headers,
+                config: err.config
+            });
+            setError(err.response?.data?.detail || "AI Analysis failed. Check console for details.");
         } finally {
             setAiLoading(false);
         }
@@ -75,6 +83,17 @@ function AnalysisContent() {
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
+            {error && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-600"
+                >
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                    <div className="text-sm font-medium flex-1">{error}</div>
+                    <button onClick={() => setError(null)} className="text-xs font-bold hover:underline">Dismiss</button>
+                </motion.div>
+            )}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="space-y-2">

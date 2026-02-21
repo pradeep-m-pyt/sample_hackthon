@@ -16,6 +16,26 @@ class LandAnalysisRequest(BaseModel):
     area_m2: float
     user_intent: str # housing, solar, agriculture, etc.
 
+class LandDetectRequest(BaseModel):
+    polygon: List[Dict[str, float]]
+
+@router.post("/detect")
+async def detect_land(request: LandDetectRequest):
+    classification = await classify_land(request.polygon)
+    
+    lats = [p['lat'] for p in request.polygon]
+    lngs = [p['lng'] for p in request.polygon]
+    center_lat = sum(lats) / len(lats)
+    center_lng = sum(lngs) / len(lngs)
+    
+    return {
+        "lat": center_lat,
+        "lng": center_lng,
+        "name": classification.get("detected_name"),
+        "dominant_type": classification.get("dominant_type"),
+        "raw_type": classification.get("raw_type")
+    }
+
 @router.post("/analyze")
 async def analyze_land(
     request: LandAnalysisRequest,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,11 +23,35 @@ export default function MapPage() {
     const [name, setName] = useState("");
     const [intent, setIntent] = useState("housing");
     const [loading, setLoading] = useState(false);
+    const [detecting, setDetecting] = useState(false);
+    const [detections, setDetections] = useState<any>(null);
 
-    const handlePolygonComplete = (coords: { lat: number; lng: number }[], calculatedArea: number) => {
+    const handlePolygonComplete = useCallback(async (coords: { lat: number; lng: number }[], calculatedArea: number) => {
         setPolygon(coords);
         setArea(calculatedArea);
-    };
+
+        // Trigger auto-detection
+        setDetecting(true);
+        try {
+            const res = await api.post("/land/detect", { polygon: coords });
+            setDetections(res.data);
+
+            // Auto-populate name if found
+            if (res.data.name && !name) {
+                setName(res.data.name);
+            }
+
+            // Auto-populate intent based on type
+            if (res.data.dominant_type === "urban") setIntent("housing");
+            else if (res.data.dominant_type === "agriculture") setIntent("agriculture");
+            else if (res.data.dominant_type === "forest") setIntent("preserve");
+            else if (res.data.dominant_type === "open_land") setIntent("solar");
+        } catch (err) {
+            console.error("Detection failed:", err);
+        } finally {
+            setDetecting(false);
+        }
+    }, [name]);
 
     const startAnalysis = async () => {
         if (!polygon || !name) return;
@@ -112,12 +136,31 @@ export default function MapPage() {
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="p-5 bg-green-50 border border-green-100 rounded-2xl space-y-3"
+                                className="p-5 bg-green-50 border border-green-100 rounded-2xl space-y-4"
                             >
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-green-800 uppercase tracking-tighter">Status</span>
-                                    <span className="px-2 py-0.5 bg-green-200 text-green-800 text-[10px] font-bold rounded-full">LAND SELECTED</span>
+                                    {detecting ? (
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            DETECTING...
+                                        </div>
+                                    ) : (
+                                        <span className="px-2 py-0.5 bg-green-200 text-green-800 text-[10px] font-bold rounded-full">LAND SELECTED</span>
+                                    )}
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-3 pb-2 border-b border-green-100">
+                                    <div>
+                                        <div className="text-[10px] font-bold text-green-700 uppercase">Latitude</div>
+                                        <div className="text-sm font-medium text-slate-900">{detections?.lat?.toFixed(5) || polygon[0].lat.toFixed(5)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-green-700 uppercase">Longitude</div>
+                                        <div className="text-sm font-medium text-slate-900">{detections?.lng?.toFixed(5) || polygon[0].lng.toFixed(5)}</div>
+                                    </div>
+                                </div>
+
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
                                         <Ruler className="w-5 h-5 text-green-600" />
@@ -127,6 +170,33 @@ export default function MapPage() {
                                         <div className="text-[10px] text-slate-500">Surface area: {area.toLocaleString()} m²</div>
                                     </div>
                                 </div>
+
+                                {detections && (
+                                    <div className="space-y-3 pt-2">
+                                        {detections.name && (
+                                            <div className="p-3 bg-white rounded-xl border border-green-100 flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                                                    <MapPin className="w-4 h-4 text-green-600" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase">Detected Name</div>
+                                                    <div className="text-xs font-bold text-slate-800">{detections.name}</div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="p-3 bg-white rounded-xl border border-green-100 flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                                                <Sprout className="w-4 h-4 text-green-600" />
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase">Land Composition</div>
+                                                <div className="text-xs font-bold text-slate-800 capitalize">
+                                                    {detections.dominant_type} ({detections.raw_type || 'Natural'})
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>

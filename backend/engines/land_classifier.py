@@ -26,7 +26,6 @@ async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
     min_lng, max_lng = min(lngs), max(lngs)
     
     # Simple Overpass query for landuse and natural tags in the bbox
-    # In a more advanced version, we would clip features to the polygon
     query = f"""
     [out:json][timeout:25];
     (
@@ -47,37 +46,49 @@ async def classify_land(polygon: List[Dict[str, float]]) -> Dict:
             
         elements = data.get("elements", [])
         
-        # 2. Distribute tags into categories
+        # 2. Distribute tags into categories and try to find a name
         distribution = {cat: 0 for cat in LAND_CATEGORIES}
+        detected_name = None
+        raw_types = []
         
         for element in elements:
             tags = element.get("tags", {})
             landuse = tags.get("landuse")
             natural = tags.get("natural")
+            name = tags.get("name")
             
-            applied = False
+            if name and not detected_name:
+                detected_name = name
+            
+            if landuse: raw_types.append(landuse)
+            if natural: raw_types.append(natural)
+            
             for cat, tag_list in LAND_CATEGORIES.items():
                 if landuse in tag_list or natural in tag_list:
                     distribution[cat] += 1
-                    applied = True
             
-        # 3. Simple heuristic: if nothing found, default to open_land (or based on general location)
         total = sum(distribution.values())
         if total == 0:
             distribution["open_land"] = 1.0
+            dominant_type = "open_land"
+            raw_type = "unclassified"
         else:
-            # Convert to percentages
             distribution = {k: v/total for k, v in distribution.items()}
+            dominant_type = max(distribution, key=distribution.get)
+            # Find most frequent raw type
+            raw_type = max(set(raw_types), key=raw_types.count) if raw_types else dominant_type
             
-        dominant_type = max(distribution, key=distribution.get)
-        
         return {
             "distribution": distribution,
-            "dominant_type": dominant_type
+            "dominant_type": dominant_type,
+            "raw_type": raw_type,
+            "detected_name": detected_name
         }
     except Exception as e:
         print(f"Error in land classification: {e}")
         return {
             "distribution": {"open_land": 1.0},
-            "dominant_type": "open_land"
+            "dominant_type": "open_land",
+            "raw_type": "error",
+            "detected_name": None
         }

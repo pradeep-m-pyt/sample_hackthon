@@ -8,32 +8,34 @@ import httpx
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-
 router = APIRouter(prefix="/auth/google", tags=["google_auth"])
-
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 class GoogleToken(BaseModel):
     token: str
 
 @router.post("/login")
 async def google_login(data: GoogleToken, db: Session = Depends(get_db)):
+    # Load env with override to ensure we pick up changes in .env file
+    load_dotenv(override=True)
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+    
     # 1. Verify token with Google
-    # We use httpx to call Google's tokeninfo endpoint for simplicity
-    # In a more robust implementation, we would use google-auth libraries to verify locally
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"https://oauth2.googleapis.com/tokeninfo?id_token={data.token}"
         )
         
     if response.status_code != 200:
+        print(f"FAILED Google token info check: {response.status_code} - {response.text}")
         raise HTTPException(status_code=400, detail="Invalid Google token")
         
     user_info = response.json()
+    print(f"Google User Info: {user_info}")
     
     # 2. Check if audience matches CLIENT_ID
-    if user_info["aud"] != GOOGLE_CLIENT_ID:
+    print(f"Comparing aud: {user_info['aud']} with CLIENT_ID: {google_client_id}")
+    if user_info["aud"] != google_client_id:
+        print("Audience mismatch!")
         raise HTTPException(status_code=400, detail="Invalid Client ID")
         
     email = user_info.get("email")

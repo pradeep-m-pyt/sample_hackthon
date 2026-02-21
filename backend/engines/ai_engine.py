@@ -24,25 +24,35 @@ async def get_ai_recommendation(
     Provide a prediction for the next 10, 20, and 30 years regarding climate impact and economic returns.
     """
 
+    # Safeguard: Ensure values are not None before formatting with commas
+    def safe_val(data, key1, key2=None, default=0):
+        try:
+            val = data.get(key1)
+            if key2 and isinstance(val, dict):
+                val = val.get(key2)
+            return val if val is not None else default
+        except:
+            return default
+
     user_prompt = f"""
     LAND DATA:
-    - Name: {project_data['name']}
-    - Area: {project_data['area_m2']} m2
-    - Dominant Type: {project_data['dominant_type']}
-    - Intent: {project_data['user_intent']}
-    - Elevation: {project_data['elevation_m']}m, Slope: {project_data['slope_pct']}%
+    - Name: {safe_val(project_data, 'name', default='N/A')}
+    - Area: {safe_val(project_data, 'area_m2'):,} m2
+    - Dominant Type: {safe_val(project_data, 'dominant_type', default='N/A')}
+    - Intent: {safe_val(project_data, 'user_intent', default='N/A')}
+    - Elevation: {safe_val(project_data, 'elevation_m')}m, Slope: {safe_val(project_data, 'slope_pct')}%
     
     ENVIRONMENTAL ANALYSIS:
-    - Flood Risk Score: {analysis_data['flood_json']['flood_risk_score']}
-    - Solar Revenue (Annual): ₹{analysis_data['solar_json']['annual_revenue_inr']:,}
-    - Solar Payback: {analysis_data['solar_json']['payback_years']} years
-    - Carbon Capture (Annual): {analysis_data['carbon_json']['annual_sequestration_co2_tons']} tons CO2
-    - Carbon NPV (30yr): ₹{analysis_data['carbon_json']['npv_30yr_inr']:,}
+    - Flood Risk Score: {safe_val(analysis_data, 'flood_json', 'flood_risk_score')}
+    - Solar Revenue (Annual): ₹{safe_val(analysis_data, 'solar_json', 'annual_revenue_inr'):,}
+    - Solar Payback: {safe_val(analysis_data, 'solar_json', 'payback_years')} years
+    - Carbon Capture (Annual): {safe_val(analysis_data, 'carbon_json', 'annual_sequestration_co2_tons')} tons CO2
+    - Carbon NPV (30yr): ₹{safe_val(analysis_data, 'carbon_json', 'npv_30yr_inr'):,}
     
     FINANCIAL SUMMARY:
-    - Environmental NPV: ₹{analysis_data['environmental_npv']:,}
-    - Development Financial Projection: ₹{analysis_data['financial_npv']:,}
-    - Composite Eco-Fin Score: {analysis_data['composite_score']}/100
+    - Environmental NPV: ₹{safe_val(analysis_data, 'environmental_npv'):,}
+    - Development Financial Projection: ₹{safe_val(analysis_data, 'financial_npv'):,}
+    - Composite Eco-Fin Score: {safe_val(analysis_data, 'composite_score')}/100
 
     Please provide a detailed report following the prescribed format. Focus on hybrid approaches (e.g., 30% solar, 70% housing) that maximize both profit and nature value.
     """
@@ -53,7 +63,7 @@ async def get_ai_recommendation(
                 GROQ_URL,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
                 json={
-                    "model": "llama-3.1-70b-versatile",
+                    "model": "llama-3.3-70b-versatile",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}

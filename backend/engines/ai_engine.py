@@ -99,6 +99,7 @@ async def get_ai_recommendation(
 - **Solar IRR**: {_safe(sd, 'irr_pct', default=0)}% | **LCOE**: ₹{_safe(sd, 'lcoe_inr_kwh', default=0)}/kWh
 - **Annual Solar Revenue**: ₹{_fmt(_safe(sd, 'annual_revenue_inr', default=0), prefix='')}
 - **Carbon NPV (30yr)**: ₹{_fmt(_safe(cd, 'npv_30yr_inr', default=0), prefix='')}
+- **Stormwater Storage Required**: {_safe(fd, 'detention_storage_m3_per_ha', default=0)} m³/ha
 - **Dev Net Profit**: ₹{_fmt(_safe(analysis_data, 'financial_npv', default=0), prefix='')}
 
 ### GUIDANCE

@@ -31,7 +31,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased bg-slate-50`}>
+      <body className={`${inter.variable} antialiased`}>
         <LoadingScreen isVisible={loading} />
         <GoogleOAuthProvider clientId="576477282695-rb7l8snqg69pds7glusd3bmep371b1g0.apps.googleusercontent.com">
           {!loading && <Navbar />}

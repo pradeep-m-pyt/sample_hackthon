@@ -26,7 +26,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
                     >
                         <Logo variant="earthy" size={100} showText={true} className="scale-125 md:scale-150" />
 
-                        <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden mt-8">
+                        <div className="w-48 h-6 bg-white border-4 border-black overflow-hidden mt-8 shadow-[4px_4px_0_0_#000]">
                             <motion.div
                                 initial={{ x: "-100%" }}
                                 animate={{ x: "100%" }}
@@ -35,7 +35,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
                                     repeat: Infinity,
                                     ease: "easeInOut",
                                 }}
-                                className="w-full h-full bg-green-600 rounded-full"
+                                className="w-full h-full bg-green-500 border-r-4 border-black"
                             />
                         </div>
 
@@ -43,9 +43,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.5 }}
-                            className="text-slate-400 text-[10px] font-mono tracking-[0.3em] uppercase"
+                            className="text-black text-[12px] font-black tracking-[0.2em] font-mono border-2 border-black px-4 py-2 bg-[#bbf7d0] mt-4 shadow-[4px_4px_0_0_#000]"
                         >
-                            Initializing Valuation Engine
+                            INITIALIZING VALUATION ENGINE
                         </motion.p>
                     </motion.div>
                 </motion.div>

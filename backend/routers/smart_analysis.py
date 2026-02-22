@@ -224,7 +224,7 @@ async def smart_analyse(req: SmartAnalysisRequest):
             "water_10yr_100pct": water_value,
             "dev_profit_100pct": dev_profit,
             "flood_risk_cost_100pct": flood_risk_cost,
-            "solar_revenue_base": solar_revenue
+            "solar_revenue_base": solar_annual
         }
     }
 

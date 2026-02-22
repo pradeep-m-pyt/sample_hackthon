@@ -40,8 +40,25 @@ async def get_annual_rainfall_mm(lat: float, lng: float) -> float:
             res = await client.get(NASA_POWER_URL, params=params)
             data = res.json()
         monthly = data["properties"]["parameter"]["PRECTOTCORR"]
-        # monthly dict keys like "202301", "202302", …
-        return round(sum(monthly.values()), 2)
+        
+        # NASA monthly PRECTOTCORR is mm/day for each month.
+        # We need to multiply by days in each month to get annual sum.
+        # Keys are "202301", "202302", etc. "202313" is the annual average.
+        days_in_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        annual_sum = 0.0
+        for i in range(1, 13):
+            key = f"2023{i:02d}"
+            if key in monthly:
+                annual_sum += monthly[key] * days_in_months[i-1]
+        
+        if annual_sum > 0:
+            return round(annual_sum, 2)
+            
+        # Fallback to annual avg if monthly loop failed
+        if "202313" in monthly:
+            return round(monthly["202313"] * 365.25, 2)
+            
+        return 1200.0
     except Exception as e:
         print(f"NASA POWER rainfall error: {e}")
         return 1200.0
@@ -108,12 +125,38 @@ async def run_flood_analysis(
         0.45 * elev_factor + 0.35 * rain_factor + 0.20 * slope_factor, 4
     )
 
-    if risk_score > 0.7:
-        risk_label = "High"
-    elif risk_score > 0.35:
-        risk_label = "Moderate"
-    else:
-        risk_label = "Low"
+    # GeoPandas NDMA Check (fallback to probabilistic score if shapefile missing)
+    risk_label = "Moderate"
+    try:
+        import geopandas as gpd
+        from shapely.geometry import Point
+        import os
+        shp_path = os.path.join(os.path.dirname(__file__), "ndma_flood_zones.shp")
+        
+        if os.path.exists(shp_path):
+            flood_zones = gpd.read_file(shp_path)
+            user_point = Point(lng, lat)
+            match = flood_zones[flood_zones.geometry.contains(user_point)]
+            
+            if match.empty:
+                risk_label = "Low"
+            else:
+                risk_label = str(match.iloc[0].get("ZONE_LEVEL", "High"))
+        else:
+            if risk_score > 0.7:
+                risk_label = "High"
+            elif risk_score > 0.35:
+                risk_label = "Moderate"
+            else:
+                risk_label = "Low"
+    except Exception as e:
+        print(f"GeoPandas execution failed: {e}")
+        if risk_score > 0.7:
+            risk_label = "High"
+        elif risk_score > 0.35:
+            risk_label = "Moderate"
+        else:
+            risk_label = "Low"
 
     return {
         "annual_rainfall_mm":              annual_p,

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from database.db import engine
 from database import models
-from routers import auth, land, aggregator, ai, google_auth
+from routers import auth, land, aggregator, ai, google_auth, smart_analysis
 import uvicorn
 import time
 import traceback
@@ -79,6 +79,7 @@ app.include_router(land.router)
 app.include_router(aggregator.router)
 app.include_router(ai.router)
 app.include_router(google_auth.router)
+app.include_router(smart_analysis.router)
 
 @app.get("/")
 def root():

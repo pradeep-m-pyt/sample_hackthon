@@ -16,7 +16,7 @@ import {
     CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, Legend
 } from 'recharts';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
 function ReportContent() {
@@ -51,15 +51,51 @@ function ReportContent() {
         }
     };
 
+    const [isGenerating, setIsGenerating] = useState(false);
+
     const exportPDF = async () => {
-        if (!reportRef.current) return;
-        const canvas = await html2canvas(reportRef.current, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`EcoTech_Dossier_${projectId}.pdf`);
+        if (!reportRef.current || isGenerating) return;
+        setIsGenerating(true);
+        try {
+            // html-to-image handles modern CSS (Tailwind v4 / oklch / lab) better than html2canvas
+            const dataUrl = await toPng(reportRef.current, {
+                quality: 0.95,
+                cacheBust: true,
+                backgroundColor: "#ffffff",
+                pixelRatio: 2
+            });
+
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const img = new Image();
+            img.src = dataUrl;
+
+            await new Promise((resolve) => {
+                img.onload = resolve;
+            });
+
+            const imgWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const imgHeight = (img.height * imgWidth) / img.width;
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            pdf.save(`EcoTech_Strategic_Report_${projectId || 'live'}.pdf`);
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            alert("Failed to generate PDF. Please ensure all images are loaded.");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     if (loading || !data) return (
@@ -144,10 +180,15 @@ function ReportContent() {
                     <button
                         type="button"
                         onClick={exportPDF}
-                        className="px-10 py-5 bg-black text-green-400 border-4 border-black font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#22c55e] transition-all shadow-[4px_4px_0_0_#22c55e] active:translate-y-1 active:shadow-none"
+                        disabled={isGenerating}
+                        className={`px-10 py-5 bg-black text-green-400 border-4 border-black font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 transition-all shadow-[4px_4px_0_0_#22c55e] active:translate-y-1 active:shadow-none ${isGenerating ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#22c55e]'}`}
                     >
-                        <Download className="w-6 h-6 stroke-[3]" />
-                        DOWNLOAD PDF DOSSIER
+                        {isGenerating ? (
+                            <Loader2 className="w-6 h-6 animate-spin text-green-400 stroke-[3]" />
+                        ) : (
+                            <Download className="w-6 h-6 stroke-[3]" />
+                        )}
+                        {isGenerating ? "GENERATING..." : "DOWNLOAD PDF DOSSIER"}
                     </button>
                 </div>
 
